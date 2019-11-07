@@ -337,7 +337,7 @@ public class AuditCollectorUtil {
         for (Object o : jsonArray) {
             JSONArray auditJO = (JSONArray) ((JSONObject) o).get(STR_AUDITSTATUSES);
             Optional<Object> lpOptObj = Optional.ofNullable(((JSONObject) o).get(STR_LIBRARYPOLICYRESULT));
-            lpOptObj.ifPresent(lpObj -> audit.getUrl().add(((JSONObject) lpOptObj.get()).get(STR_REPORTURL).toString()));
+            lpOptObj.ifPresent(lpObj -> audit.getUrl().add((String)((JSONObject) lpOptObj.get()).get(STR_REPORTURL)));
             auditJO.stream().map(aj -> audit.getAuditStatusCodes().add((String) aj));
             boolean ok = false;
             for (Object s : auditJO) {
