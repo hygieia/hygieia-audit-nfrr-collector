@@ -12,7 +12,6 @@ import com.capitalone.dashboard.model.Collector;
 import com.capitalone.dashboard.model.CollectorType;
 import com.capitalone.dashboard.model.Component;
 
-import com.capitalone.dashboard.repository.AuditResultRepository;
 import com.capitalone.dashboard.repository.CollectorItemRepository;
 import com.capitalone.dashboard.repository.ComponentRepository;
 
@@ -50,6 +49,7 @@ import java.util.Map;
 import java.util.Arrays;
 import java.util.Optional;
 import java.util.StringJoiner;
+import java.util.Collections;
 
 import java.util.function.Supplier;
 import java.util.stream.Stream;
@@ -64,7 +64,6 @@ public class AuditCollectorUtil {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(AuditCollectorUtil.class);
     private static final String HYGIEIA_AUDIT_URL = "/dashboardReview";
-    private static List<AuditResult> auditResults = new ArrayList<>();
     private static final String AUDIT_TYPES_PARAM  = "CODE_REVIEW,CODE_QUALITY,STATIC_SECURITY_ANALYSIS,LIBRARY_POLICY," +
             "TEST_RESULT,PERF_TEST,ARTIFACT,DEPLOY";
     private enum AUDIT_PARAMS {title,businessService,businessApplication,beginDate,endDate,auditType}
@@ -687,12 +686,12 @@ public class AuditCollectorUtil {
     }
 
     /**
-     * Add audit result by audit type
+     * Get audit results
      */
     @SuppressWarnings("PMD.NPathComplexity")
-    public static void addAuditResultByAuditType(Dashboard dashboard, Map<AuditType, Audit> auditMap, Cmdb cmdb, long timestamp) {
+    public static List<AuditResult> getAuditResults(Dashboard dashboard, Map<AuditType, Audit> auditMap, Cmdb cmdb, long timestamp) {
 
-        if(CollectionUtils.isEmpty(auditMap)){ return; }
+        if(CollectionUtils.isEmpty(auditMap)){ return Collections.emptyList(); }
         ObjectId dashboardId = dashboard.getId();
         String dashboardTitle = dashboard.getTitle();
         String ownerDept = ((cmdb == null || cmdb.getOwnerDept() == null) ? "" : cmdb.getOwnerDept());
@@ -700,6 +699,7 @@ public class AuditCollectorUtil {
         String appBusApp = (dashboard.getConfigurationItemBusAppName() == null ? "" : dashboard.getConfigurationItemBusAppName());
         String appServiceOwner = ((cmdb == null || cmdb.getAppServiceOwner() == null) ? "" : cmdb.getAppServiceOwner());
         String appBusAppOwner = ((cmdb == null || cmdb.getBusinessOwner() == null) ? "" : cmdb.getBusinessOwner());
+        List<AuditResult> auditResults = new ArrayList<>();
 
         try {
             Arrays.stream(AuditType.values()).forEach((AuditType auditType) -> {
@@ -721,28 +721,7 @@ public class AuditCollectorUtil {
                     AuditType.ALL, DataStatus.ERROR.name(), AuditStatus.NA.name(), null, null, timestamp);
             auditResults.add(errAuditResult);
         }
-    }
-
-    /**
-     * Get audit results collection
-     */
-    protected static List<AuditResult> getAuditResults() {
         return auditResults;
-    }
-
-    /**
-     * Clear audit results repository
-     */
-    public static void clearAuditResultRepo(AuditResultRepository auditResultRepository) {
-        LOGGER.info("NFRR Audit Collector clears last collected audit results from database");
-        auditResultRepository.deleteAll();
-    }
-
-    /**
-     * Clear audit results collection
-     */
-    public static void clearAuditResults() {
-        auditResults.clear();
     }
 
     /**

@@ -66,22 +66,16 @@ public class AuditCollectorTask extends CollectorTask<AuditCollector> {
         LOGGER.info("NFRR Audit Collector pulls all the team dashboards");
         Iterable<Dashboard> dashboards = dashboardRepository.findAllByType(DashboardType.Team);
 
-        List<AuditResult> auditResults = getAuditResults(dashboards);
-        if (auditResults.isEmpty()){
-            return;
-        }
-        AuditCollectorUtil.clearAuditResultRepo(auditResultRepository);
-        auditResultRepository.save(auditResults);
-        AuditCollectorUtil.clearAuditResults();
+        collectAuditResults(dashboards);
         LOGGER.info("NFRR Audit Collector executed successfully");
         }
 
     /**
-     * Get audit statuses for the dashboards
+     * Collect audit results of dashboards
      *
      * @param dashboards
      */
-    protected List<AuditResult> getAuditResults(Iterable<Dashboard> dashboards) {
+    protected void collectAuditResults(Iterable<Dashboard> dashboards) {
         int numberOfAuditDays = settings.getDays();
         long auditBeginDateTimeStamp = Instant.now().minus(Duration.ofDays(numberOfAuditDays)).toEpochMilli();
         long auditEndDateTimeStamp = Instant.now().toEpochMilli();
@@ -98,9 +92,22 @@ public class AuditCollectorTask extends CollectorTask<AuditCollector> {
                 LOGGER.info("NFRR Audit Collector adding audit results for the dashboard : " + dashboard.getTitle()
                         + " - " + index.getAndIncrement() + "/" + totTeamDbdCount);
                 Cmdb cmdb = cmdbRepository.findByConfigurationItem(dashboard.getConfigurationItemBusServName());
-                AuditCollectorUtil.addAuditResultByAuditType(dashboard, auditMap, cmdb, auditEndDateTimeStamp);
+                List<AuditResult> latestAuditResults = AuditCollectorUtil.getAuditResults(dashboard, auditMap, cmdb, auditEndDateTimeStamp);
+                refreshAuditResults(dashboard, latestAuditResults);
         });
-        return AuditCollectorUtil.getAuditResults();
+    }
+
+    /**
+     * Refresh the audit results
+     * @param dashboard
+     * @param latestAuditResults
+     */
+    private void refreshAuditResults(Dashboard dashboard, List<AuditResult> latestAuditResults) {
+        if (CollectionUtils.isNotEmpty(latestAuditResults)) {
+            Iterable<AuditResult> oldAuditResults = auditResultRepository.findByDashboardTitle(dashboard.getTitle());
+            auditResultRepository.delete(oldAuditResults);
+            auditResultRepository.save(latestAuditResults);
+        }
     }
 
     @Override
