@@ -156,7 +156,7 @@ public class AuditCollectorTaskTest {
                 auditCQ.setAuditStatus(AuditStatus.OK);
                 auditCQ.setDataStatus(DataStatus.OK);
                 auditMap1.put(AuditType.CODE_QUALITY, auditCQ);
-                AuditResult auditResult = AuditCollectorUtil.getAuditResults().get(0);
+                AuditResult auditResult = AuditCollectorUtil.getAuditResults(dashboard, auditMap1, null, 7883L).get(0);
                 AuditCollectorUtil auditCollectorUtil = new AuditCollectorUtil(null, null, collectorItemRepository);
                 Mockito.when(auditCollectorUtil.getAudit(dashboard,settings,BEGIN_DATE,END_DATE)).thenReturn(auditMap1);
                 assertNotNull(auditResult.getDashboardId());
