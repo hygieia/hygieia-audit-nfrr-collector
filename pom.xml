@@ -9,7 +9,7 @@
     <description>NFRR Audit Collector</description>
     <packaging>jar</packaging>
     <url>https://github.com/Hygieia/${repository.name}</url>
-    <version>3.1.2-SNAPSHOT</version>
+    <version>3.1.3</version>
     <artifactId>nfrr-audit-collector</artifactId>
 
     <parent>
