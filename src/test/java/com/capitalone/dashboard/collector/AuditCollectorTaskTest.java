@@ -2,7 +2,15 @@ package com.capitalone.dashboard.collector;
 
 import com.capitalone.dashboard.collector.config.FongoConfig;
 import com.capitalone.dashboard.collector.config.TestConfig;
-import com.capitalone.dashboard.model.*;
+import com.capitalone.dashboard.model.Audit;
+import com.capitalone.dashboard.model.AuditResult;
+import com.capitalone.dashboard.model.AuditStatus;
+import com.capitalone.dashboard.model.AuditType;
+import com.capitalone.dashboard.model.Collector;
+import com.capitalone.dashboard.model.CollectorItem;
+import com.capitalone.dashboard.model.Dashboard;
+import com.capitalone.dashboard.model.DashboardType;
+import com.capitalone.dashboard.model.DataStatus;
 import com.capitalone.dashboard.repository.AuditResultRepository;
 import com.capitalone.dashboard.repository.DashboardRepository;
 import com.capitalone.dashboard.repository.ComponentRepository;
