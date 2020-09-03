@@ -1,4 +1,5 @@
 package com.capitalone.dashboard.collector;
+import com.capitalone.dashboard.client.RestClient;
 import com.capitalone.dashboard.model.Dashboard;
 import com.capitalone.dashboard.model.Audit;
 import com.capitalone.dashboard.model.AuditResult;
@@ -21,8 +22,10 @@ import org.springframework.scheduling.TaskScheduler;
 import org.springframework.stereotype.Component;
 
 
+import java.text.SimpleDateFormat;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -45,12 +48,14 @@ public class AuditCollectorTask extends CollectorTask<AuditCollector> {
     private ComponentRepository componentRepository;
     private CollectorItemRepository collectorItemRepository;
     private static final String COLLECTOR_NAME = "AuditCollector";
+    private RestClient restClient;
 
     @Autowired
     public AuditCollectorTask(TaskScheduler taskScheduler, DashboardRepository dashboardRepository,
                               AuditResultRepository auditResultRepository, AuditCollectorRepository auditCollectorRepository,
                               CmdbRepository cmdbRepository, ComponentRepository componentRepository,
-                              CollectorItemRepository collectorItemRepository, AuditSettings settings) {
+                              CollectorItemRepository collectorItemRepository, AuditSettings settings,
+                              RestClient restClient) {
         super(taskScheduler, COLLECTOR_NAME);
         this.dashboardRepository = dashboardRepository;
         this.auditResultRepository = auditResultRepository;
@@ -59,6 +64,7 @@ public class AuditCollectorTask extends CollectorTask<AuditCollector> {
         this.componentRepository = componentRepository;
         this.collectorItemRepository = collectorItemRepository;
         this.settings = settings;
+        this.restClient = restClient;
     }
 
     @Override
@@ -79,22 +85,31 @@ public class AuditCollectorTask extends CollectorTask<AuditCollector> {
         int numberOfAuditDays = settings.getDays();
         long auditBeginDateTimeStamp = Instant.now().minus(Duration.ofDays(numberOfAuditDays)).toEpochMilli();
         long auditEndDateTimeStamp = Instant.now().toEpochMilli();
-        LOGGER.info("NFRR Audit Collector audits with begin,end timestamps as " + auditBeginDateTimeStamp + "," + auditEndDateTimeStamp);
+        int totTeamDbdCount = CollectionUtils.size(dashboards);
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd:HH:mm:ss");
+        LOGGER.info(String.format("Audit time range start=%d (%s) end=%d (%s) dashboards=%d",
+                auditBeginDateTimeStamp, sdf.format(new Date(auditBeginDateTimeStamp)),
+                auditEndDateTimeStamp, sdf.format(new Date(auditEndDateTimeStamp)), totTeamDbdCount));
 
         AuditCollector collector = getCollectorRepository().findByName(COLLECTOR_NAME);
-        AuditCollectorUtil auditCollectorUtil = new AuditCollectorUtil(collector, componentRepository, collectorItemRepository);
-        int totTeamDbdCount = CollectionUtils.size(dashboards);
-        final AtomicInteger index = new AtomicInteger();
-        dashboards.forEach((Dashboard dashboard) -> {
+        AuditCollectorUtil auditCollectorUtil = new AuditCollectorUtil(collector, componentRepository,
+                collectorItemRepository, restClient);
+        int index = 0;
+        for (Dashboard dashboard : dashboards) {
+            long startTime = System.currentTimeMillis();
+            try {
                 Map<AuditType, Audit> auditMap = auditCollectorUtil.getAudit(dashboard, settings,
                         auditBeginDateTimeStamp, auditEndDateTimeStamp);
-
-                LOGGER.info("NFRR Audit Collector adding audit results for the dashboard : " + dashboard.getTitle()
-                        + " - " + index.getAndIncrement() + "/" + totTeamDbdCount);
                 Cmdb cmdb = cmdbRepository.findByConfigurationItem(dashboard.getConfigurationItemBusServName());
                 List<AuditResult> latestAuditResults = AuditCollectorUtil.getAuditResults(dashboard, auditMap, cmdb, auditEndDateTimeStamp);
                 refreshAuditResults(dashboard, latestAuditResults);
-        });
+            } catch (Exception e) {
+                LOGGER.error("Exception in collecting audit result for dashboard="+dashboard.getTitle(), e);
+            }
+            long endTime = System.currentTimeMillis();
+            LOGGER.info(String.format("Adding audit results - dashboard=%s [%d/%d] timeTaken=%d",
+                    dashboard.getTitle(), ++index, totTeamDbdCount, endTime-startTime));
+        }
     }
 
     /**

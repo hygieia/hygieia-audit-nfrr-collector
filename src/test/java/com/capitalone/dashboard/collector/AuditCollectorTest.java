@@ -33,7 +33,7 @@ public class AuditCollectorTest {
         this.cmdbRepository = cmdbRepository;
         auditSettings = new TestConfig().settings();
         this.taskToTest = new AuditCollectorTask(taskScheduler, dashboardRepository, auditResultRepository,
-                auditCollectorRepository, cmdbRepository,null, null, auditSettings);
+                auditCollectorRepository, cmdbRepository,null, null, auditSettings, null);
     }
 
     @Test

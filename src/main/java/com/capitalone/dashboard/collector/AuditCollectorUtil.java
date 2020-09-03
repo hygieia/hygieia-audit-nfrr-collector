@@ -1,5 +1,6 @@
 package com.capitalone.dashboard.collector;
 
+import com.capitalone.dashboard.client.RestClient;
 import com.capitalone.dashboard.model.Audit;
 import com.capitalone.dashboard.model.AuditStatus;
 import com.capitalone.dashboard.model.DataStatus;
@@ -33,13 +34,15 @@ import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.http.HttpEntity;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
 import org.springframework.jmx.MBeanServerNotFoundException;
 import org.springframework.util.CollectionUtils;
-import org.springframework.web.client.RestTemplate;
 
 import java.util.List;
 import java.util.ArrayList;
@@ -89,6 +92,8 @@ public class AuditCollectorUtil {
     private static final String SKIP_COUNT = "skippedCount";
     private static final String TOTAL_COUNT = "totalCount";
     private static final String OPT_DBRD_ID = "dashboardId";
+    private static final String OPT_URL = "url";
+    private static final String OPT_OPT_URL = "options.url";
 
     private Dashboard dashboard;
     static List<CollectorItem> auditCollectorItems = new ArrayList<>();
@@ -96,12 +101,14 @@ public class AuditCollectorUtil {
     private CollectorItemRepository collectorItemRepository;
     private ComponentRepository componentRepository;
     private Collector collector;
+    private RestClient restClient;
 
     public AuditCollectorUtil(Collector collector, ComponentRepository componentRepository,
-                              CollectorItemRepository collectorItemRepository){
+                              CollectorItemRepository collectorItemRepository, RestClient restClient){
         this.collector = collector;
         this.componentRepository = componentRepository;
         this.collectorItemRepository = collectorItemRepository;
+        this.restClient = restClient;
     }
 
     /**
@@ -109,7 +116,7 @@ public class AuditCollectorUtil {
      */
     private Audit getCodeReviewAudit(JSONArray jsonArray, JSONArray global) {
 
-        LOGGER.info("NFRR Audit Collector auditing CODE_REVIEW");
+        LOGGER.debug("NFRR Audit Collector auditing CODE_REVIEW");
         Audit audit = new Audit();
         audit.setType(AuditType.CODE_REVIEW);
 
@@ -231,7 +238,7 @@ public class AuditCollectorUtil {
      */
     private Audit getCodeQualityAudit(JSONArray jsonArray, JSONArray global) {
 
-        LOGGER.info("NFRR Audit Collector auditing CODE_QUALITY");
+        LOGGER.debug("NFRR Audit Collector auditing CODE_QUALITY");
         Audit audit = new Audit();
         audit.setType(AuditType.CODE_QUALITY);
         CollectorItem collectorItem = createCollectorItem(audit.getType());
@@ -278,7 +285,7 @@ public class AuditCollectorUtil {
      */
     private Audit getSecurityAudit(JSONArray jsonArray, JSONArray global) {
 
-        LOGGER.info("NFRR Audit Collector auditing STATIC_SECURITY_ANALYSIS");
+        LOGGER.debug("NFRR Audit Collector auditing STATIC_SECURITY_ANALYSIS");
         Audit audit = new Audit();
         audit.setType(AuditType.STATIC_SECURITY_ANALYSIS);
         CollectorItem collectorItem = createCollectorItem(audit.getType());
@@ -319,7 +326,7 @@ public class AuditCollectorUtil {
      */
     private Audit getOSSAudit(JSONArray jsonArray, JSONArray global) {
 
-        LOGGER.info("NFRR Audit Collector auditing LIBRARY_POLICY");
+        LOGGER.debug("NFRR Audit Collector auditing LIBRARY_POLICY");
         Audit audit = new Audit();
         audit.setType(AuditType.LIBRARY_POLICY);
         CollectorItem collectorItem = createCollectorItem(audit.getType());
@@ -366,7 +373,7 @@ public class AuditCollectorUtil {
      */
     protected Audit getTestAudit(JSONArray jsonArray, JSONArray global) {
 
-        LOGGER.info("NFRR Audit Collector auditing TEST_RESULT");
+        LOGGER.debug("NFRR Audit Collector auditing TEST_RESULT");
         Audit audit = new Audit();
         audit.setType(AuditType.TEST_RESULT);
         CollectorItem collectorItem = createCollectorItem(audit.getType());
@@ -408,7 +415,7 @@ public class AuditCollectorUtil {
      */
     private Audit getPerfAudit(JSONArray jsonArray, JSONArray global) {
 
-        LOGGER.info("NFRR Audit Collector auditing PERF_TEST");
+        LOGGER.debug("NFRR Audit Collector auditing PERF_TEST");
         Audit audit = new Audit();
         audit.setType(AuditType.PERF_TEST);
         CollectorItem collectorItem = createCollectorItem(audit.getType());
@@ -454,7 +461,7 @@ public class AuditCollectorUtil {
      */
     protected Audit getArtifactAudit(JSONArray jsonArray, JSONArray global) {
 
-        LOGGER.info("NFRR Audit Collector auditing ARTIFACT");
+        LOGGER.debug("NFRR Audit Collector auditing ARTIFACT");
         Audit audit = new Audit();
         audit.setType(AuditType.ARTIFACT);
         CollectorItem collectorItem = createCollectorItem(audit.getType());
@@ -506,7 +513,7 @@ public class AuditCollectorUtil {
      */
     protected Audit getDeployAudit(JSONArray jsonArray, JSONArray global) {
 
-        LOGGER.info("NFRR Audit Collector auditing DEPLOY");
+        LOGGER.debug("NFRR Audit Collector auditing DEPLOY");
         Audit audit = new Audit();
         audit.setType(AuditType.DEPLOY);
         CollectorItem collectorItem = createCollectorItem(audit.getType());
@@ -638,11 +645,9 @@ public class AuditCollectorUtil {
      * Make audit api rest call and parse response
      */
     protected JSONObject parseObject(String url, AuditSettings settings){
-        LOGGER.info("NFRR Audit Collector Audit API Call");
-        RestTemplate restTemplate = new RestTemplate();
         JSONObject responseObj = null;
         try {
-            ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.GET, getHeaders(settings), String.class);
+            ResponseEntity<String> response = restClient.makeRestCallGet(url, getHeaders(settings));
             JSONParser jsonParser = new JSONParser();
             responseObj = (JSONObject) jsonParser.parse(response.getBody());
         } catch (Exception e) {
@@ -656,7 +661,6 @@ public class AuditCollectorUtil {
      * Construct audit api url
      */
     protected String getAuditAPIUrl(Dashboard dashboard, AuditSettings settings, long beginDate, long endDate) {
-        LOGGER.info("NFRR Audit Collector creates Audit API URL");
         if (CollectionUtils.isEmpty(settings.getServers())) {
             LOGGER.error("No Server Found to run NoFearRelease audit collector");
             throw new MBeanServerNotFoundException("No Server Found to run NoFearRelease audit collector");
@@ -676,13 +680,13 @@ public class AuditCollectorUtil {
     /**
      * Get api authentication headers
      */
-    protected HttpEntity getHeaders(AuditSettings auditSettings) {
+    protected HttpHeaders getHeaders(AuditSettings auditSettings) {
         HttpHeaders headers = new HttpHeaders();
         if (!CollectionUtils.isEmpty(auditSettings.getUsernames()) && !CollectionUtils.isEmpty(auditSettings.getApiKeys())) {
             headers.set(STR_APIUSER, auditSettings.getUsernames().iterator().next());
             headers.set(STR_AUTHORIZATION, STR_APITOKENSPACE + auditSettings.getApiKeys().iterator().next());
         }
-        return new HttpEntity<>(headers);
+        return headers;
     }
 
     /**
@@ -784,7 +788,10 @@ public class AuditCollectorUtil {
      */
     protected CollectorItem createCollectorItem(AuditType auditType){
         String description = getDescription(auditType);
-        Iterable<CollectorItem> collectorItems = collectorItemRepository.findByDescription(description);
+        Pageable pageable = new PageRequest(0, 25);
+//        Iterable<CollectorItem> collectorItems = collectorItemRepository.findByDescription(description);
+        Page<CollectorItem> collectorItems = collectorItemRepository.findByCollectorIdAndSearchField(Collections.singletonList(collector.getId()),
+                OPT_OPT_URL, description, pageable);
         Optional<CollectorItem> optCollectorItem = Optional.ofNullable(collectorItems.iterator().hasNext() ? collectorItems.iterator().next() : null);
         optCollectorItem.ifPresent(collectorItem -> collectorItem.setLastUpdated(System.currentTimeMillis()));
         optCollectorItem = Optional.ofNullable(optCollectorItem.orElseGet(() -> {
@@ -797,6 +804,8 @@ public class AuditCollectorUtil {
             collectorItem.setLastUpdated(System.currentTimeMillis());
             collectorItem.setDescription(description);
             collectorItem.getOptions().put(OPT_DBRD_ID, getDashboard().getId());
+            collectorItem.getOptions().put(OPT_URL, description);
+            LOGGER.info(String.format("new collector item created, description=%s", description));
             return collectorItem;
         }));
         return collectorItemRepository.save(optCollectorItem.get());
