@@ -2,14 +2,15 @@ package com.capitalone.dashboard.collector;
 
 import com.capitalone.dashboard.collector.config.FongoConfig;
 import com.capitalone.dashboard.collector.config.TestConfig;
-import com.capitalone.dashboard.model.Dashboard;
-import com.capitalone.dashboard.model.AuditResult;
-import com.capitalone.dashboard.model.AuditType;
 import com.capitalone.dashboard.model.Audit;
+import com.capitalone.dashboard.model.AuditResult;
 import com.capitalone.dashboard.model.AuditStatus;
-import com.capitalone.dashboard.model.DataStatus;
-import com.capitalone.dashboard.model.DashboardType;
+import com.capitalone.dashboard.model.AuditType;
+import com.capitalone.dashboard.model.Collector;
 import com.capitalone.dashboard.model.CollectorItem;
+import com.capitalone.dashboard.model.Dashboard;
+import com.capitalone.dashboard.model.DashboardType;
+import com.capitalone.dashboard.model.DataStatus;
 import com.capitalone.dashboard.repository.AuditResultRepository;
 import com.capitalone.dashboard.repository.DashboardRepository;
 import com.capitalone.dashboard.repository.ComponentRepository;
@@ -73,20 +74,33 @@ public class AuditCollectorTaskTest {
         settings = new TestConfig().settings();
     }
 
-    private void loadCollectorItem() throws IOException {
+    private Collector loadCollectorItem() throws IOException {
+        TestUtils.loadCollector(collectorRepository);
         TestUtils.loadCollectorItems(collectorItemRepository);
+        Iterable<Collector> collectors = collectorRepository.findAll();
+        Collector collector = collectors.iterator().next();
+        Iterable<CollectorItem> allItems = collectorItemRepository.findAll();
+        for (CollectorItem one : allItems) {
+            if (one.getDescription()!=null && one.getDescription().matches(".*audit process")) {
+                one.getOptions().put("url", one.getDescription());
+                one.setCollectorId(collector.getId());
+                collectorItemRepository.save(one);
+            }
+        }
+        return collector;
     }
 
 
     @Test
     public void test_testResultAuditCollect() throws IOException, ParseException {
-        this.loadCollectorItem();
+        Collector collector = this.loadCollectorItem();
         ResponseEntity<String> response = new ResponseEntity<>(getJSONResponse("response/auditresponse.json"),
                 HttpStatus.OK);
         JSONParser jsonParser = new JSONParser();
         JSONObject responseObj = (JSONObject) jsonParser.parse(response.getBody());
         JSONObject review = (JSONObject) responseObj.get("review");
-        AuditCollectorUtil auditCollectorUtil = new AuditCollectorUtil(null, null, collectorItemRepository);
+        AuditCollectorUtil auditCollectorUtil = new AuditCollectorUtil(collector, null,
+                collectorItemRepository, null);
         CollectorItem collectorItem = collectorItemRepository.findByDescription("title test_result audit process").get(0);
         Audit testAudit = auditCollectorUtil.getTestAudit((JSONArray) review.get(AuditType.TEST_RESULT.name()),
                 (JSONArray) responseObj.get("auditStatuses"));
@@ -100,13 +114,15 @@ public class AuditCollectorTaskTest {
 
     @Test
     public void test_artifactAuditCollect() throws IOException, ParseException {
-        this.loadCollectorItem();
+        Collector collector = this.loadCollectorItem();
         ResponseEntity<String> response = new ResponseEntity<>(getJSONResponse("response/auditresponse.json"),
                 HttpStatus.OK);
         JSONParser jsonParser = new JSONParser();
         JSONObject responseObj = (JSONObject) jsonParser.parse(response.getBody());
         JSONObject review = (JSONObject) responseObj.get("review");
-        AuditCollectorUtil auditCollectorUtil = new AuditCollectorUtil(null, null, collectorItemRepository);
+
+        AuditCollectorUtil auditCollectorUtil = new AuditCollectorUtil(collector, null,
+                collectorItemRepository, null);
         CollectorItem collectorItem = collectorItemRepository.findByDescription("title artifact audit process").get(0);
         Audit artifactAudit = auditCollectorUtil.getArtifactAudit((JSONArray) review.get(AuditType.ARTIFACT.name()),
                 (JSONArray) responseObj.get("auditStatuses"));
@@ -118,13 +134,14 @@ public class AuditCollectorTaskTest {
 
     @Test
     public void test_deployAuditCollect() throws IOException, ParseException {
-        this.loadCollectorItem();
+        Collector collector = this.loadCollectorItem();
         ResponseEntity<String> response = new ResponseEntity<>(getJSONResponse("response/auditresponse.json"),
                 HttpStatus.OK);
         JSONParser jsonParser = new JSONParser();
         JSONObject responseObj = (JSONObject) jsonParser.parse(response.getBody());
         JSONObject review = (JSONObject) responseObj.get("review");
-        AuditCollectorUtil auditCollectorUtil = new AuditCollectorUtil(null, null, collectorItemRepository);
+        AuditCollectorUtil auditCollectorUtil = new AuditCollectorUtil(collector, null,
+                collectorItemRepository, null);
         CollectorItem collectorItem = collectorItemRepository.findByDescription("title deploy audit process").get(0);
         Audit deployAudit = auditCollectorUtil.getDeployAudit((JSONArray) review.get(AuditType.DEPLOY.name()),
                 (JSONArray) responseObj.get("auditStatuses"));
@@ -157,7 +174,8 @@ public class AuditCollectorTaskTest {
                 auditCQ.setDataStatus(DataStatus.OK);
                 auditMap1.put(AuditType.CODE_QUALITY, auditCQ);
                 AuditResult auditResult = AuditCollectorUtil.getAuditResults(dashboard, auditMap1, null, 7883L).get(0);
-                AuditCollectorUtil auditCollectorUtil = new AuditCollectorUtil(null, null, collectorItemRepository);
+                AuditCollectorUtil auditCollectorUtil = new AuditCollectorUtil(null, null,
+                        collectorItemRepository, null);
                 Mockito.when(auditCollectorUtil.getAudit(dashboard,settings,BEGIN_DATE,END_DATE)).thenReturn(auditMap1);
                 assertNotNull(auditResult.getDashboardId());
                 assertNotNull(auditResult.getDashboardTitle());
