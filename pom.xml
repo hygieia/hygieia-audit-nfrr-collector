@@ -8,7 +8,7 @@
     <description>NFRR Audit Collector</description>
     <packaging>jar</packaging>
     <url>https://github.com/hygieia/${repository.name}</url>
-    <version>3.1.8-SNAPSHOT</version>
+    <version>3.1.7-SNAPSHOT</version>
 
     <parent>
         <groupId>org.springframework.boot</groupId>
