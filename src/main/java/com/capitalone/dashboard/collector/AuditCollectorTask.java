@@ -1,19 +1,19 @@
 package com.capitalone.dashboard.collector;
+
 import com.capitalone.dashboard.client.RestClient;
-import com.capitalone.dashboard.model.Dashboard;
 import com.capitalone.dashboard.model.Audit;
 import com.capitalone.dashboard.model.AuditResult;
 import com.capitalone.dashboard.model.AuditType;
-import com.capitalone.dashboard.model.DashboardType;
 import com.capitalone.dashboard.model.Cmdb;
-
-import com.capitalone.dashboard.repository.DashboardRepository;
-import com.capitalone.dashboard.repository.AuditResultRepository;
+import com.capitalone.dashboard.model.Dashboard;
+import com.capitalone.dashboard.model.DashboardType;
 import com.capitalone.dashboard.repository.AuditCollectorRepository;
-import com.capitalone.dashboard.repository.CmdbRepository;
+import com.capitalone.dashboard.repository.AuditResultRepository;
 import com.capitalone.dashboard.repository.BaseCollectorRepository;
-import com.capitalone.dashboard.repository.ComponentRepository;
+import com.capitalone.dashboard.repository.CmdbRepository;
 import com.capitalone.dashboard.repository.CollectorItemRepository;
+import com.capitalone.dashboard.repository.ComponentRepository;
+import com.capitalone.dashboard.repository.DashboardRepository;
 import org.apache.commons.collections4.CollectionUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -21,14 +21,12 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.TaskScheduler;
 import org.springframework.stereotype.Component;
 
-
 import java.text.SimpleDateFormat;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * <h1>AuditCollectorTask</h1>
@@ -69,11 +67,18 @@ public class AuditCollectorTask extends CollectorTask<AuditCollector> {
 
     @Override
     public void collect(AuditCollector collector) {
+        long startTime = System.currentTimeMillis();
+        LOGGER.info(String.format("NFRRCollectorTask:collect start collector_run_id=%d", startTime));
         LOGGER.info("NFRR Audit Collector pulls all the team dashboards");
-        Iterable<Dashboard> dashboards = dashboardRepository.findAllByType(DashboardType.Team);
 
-        collectAuditResults(dashboards);
+        Iterable<Dashboard> dashboards = dashboardRepository.findAllByType(DashboardType.Team);
+        collectAuditResults(dashboards, startTime);
+        long endTime = System.currentTimeMillis();
+        long elapsedSeconds = (endTime-startTime)/1000;
+        collector.setLastExecutedSeconds(elapsedSeconds);
+        collector.setLastExecutionRecordCount(CollectionUtils.size(dashboards));
         LOGGER.info("NFRR Audit Collector executed successfully");
+        LOGGER.info(String.format("NFRRCollectorTask:collect stop, collector_process_time=%d collector_item_count=%d collector_run_id=%d", elapsedSeconds, CollectionUtils.size(dashboards), startTime));
         }
 
     /**
@@ -81,15 +86,15 @@ public class AuditCollectorTask extends CollectorTask<AuditCollector> {
      *
      * @param dashboards
      */
-    protected void collectAuditResults(Iterable<Dashboard> dashboards) {
+    protected void collectAuditResults(Iterable<Dashboard> dashboards, long collector_run_id) {
         int numberOfAuditDays = settings.getDays();
         long auditBeginDateTimeStamp = Instant.now().minus(Duration.ofDays(numberOfAuditDays)).toEpochMilli();
         long auditEndDateTimeStamp = Instant.now().toEpochMilli();
         int totTeamDbdCount = CollectionUtils.size(dashboards);
         SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd:HH:mm:ss");
-        LOGGER.info(String.format("Audit time range start=%d (%s) end=%d (%s) dashboards=%d",
+        LOGGER.info(String.format("Audit time range time_range_start=%d (%s) time_range_end=%d (%s) dashboard_count=%d collector_run_id=%d",
                 auditBeginDateTimeStamp, sdf.format(new Date(auditBeginDateTimeStamp)),
-                auditEndDateTimeStamp, sdf.format(new Date(auditEndDateTimeStamp)), totTeamDbdCount));
+                auditEndDateTimeStamp, sdf.format(new Date(auditEndDateTimeStamp)), totTeamDbdCount, collector_run_id));
 
         AuditCollector collector = getCollectorRepository().findByName(COLLECTOR_NAME);
         AuditCollectorUtil auditCollectorUtil = new AuditCollectorUtil(collector, componentRepository,
@@ -104,11 +109,11 @@ public class AuditCollectorTask extends CollectorTask<AuditCollector> {
                 List<AuditResult> latestAuditResults = AuditCollectorUtil.getAuditResults(dashboard, auditMap, cmdb, auditEndDateTimeStamp);
                 refreshAuditResults(dashboard, latestAuditResults);
             } catch (Exception e) {
-                LOGGER.error("Exception in collecting audit result for dashboard="+dashboard.getTitle(), e);
+                LOGGER.error("Exception in collecting audit result for error_dashboard=" + dashboard.getTitle() +" collector_run_id=" + collector_run_id , e);
             }
             long endTime = System.currentTimeMillis();
-            LOGGER.info(String.format("Adding audit results - dashboard=%s [%d/%d] timeTaken=%d",
-                    dashboard.getTitle(), ++index, totTeamDbdCount, endTime-startTime));
+            LOGGER.info(String.format("Adding audit results - dashboard=%s [%d/%d] duration=%d collector_run_id=%d",
+                    dashboard.getTitle(), ++index, totTeamDbdCount, endTime-startTime, collector_run_id));
         }
     }
 
