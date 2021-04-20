@@ -2,30 +2,26 @@ package com.capitalone.dashboard.collector;
 
 import com.capitalone.dashboard.client.RestClient;
 import com.capitalone.dashboard.model.Audit;
-import com.capitalone.dashboard.model.AuditStatus;
-import com.capitalone.dashboard.model.DataStatus;
-import com.capitalone.dashboard.model.AuditType;
 import com.capitalone.dashboard.model.AuditResult;
-import com.capitalone.dashboard.model.Dashboard;
+import com.capitalone.dashboard.model.AuditStatus;
+import com.capitalone.dashboard.model.AuditType;
 import com.capitalone.dashboard.model.Cmdb;
-import com.capitalone.dashboard.model.CollectorItem;
 import com.capitalone.dashboard.model.Collector;
+import com.capitalone.dashboard.model.CollectorItem;
 import com.capitalone.dashboard.model.CollectorType;
 import com.capitalone.dashboard.model.Component;
-
+import com.capitalone.dashboard.model.Dashboard;
+import com.capitalone.dashboard.model.DataStatus;
 import com.capitalone.dashboard.repository.CollectorItemRepository;
 import com.capitalone.dashboard.repository.ComponentRepository;
-
-
+import com.capitalone.dashboard.status.ArtifactAuditStatus;
+import com.capitalone.dashboard.status.CodeQualityAuditStatus;
 import com.capitalone.dashboard.status.CodeReviewAuditStatus;
 import com.capitalone.dashboard.status.DashboardAuditStatus;
-import com.capitalone.dashboard.status.CodeQualityAuditStatus;
-import com.capitalone.dashboard.status.PerformanceTestAuditStatus;
-import com.capitalone.dashboard.status.LibraryPolicyAuditStatus;
-import com.capitalone.dashboard.status.TestResultAuditStatus;
-import com.capitalone.dashboard.status.ArtifactAuditStatus;
 import com.capitalone.dashboard.status.DeployAuditStatus;
-
+import com.capitalone.dashboard.status.LibraryPolicyAuditStatus;
+import com.capitalone.dashboard.status.PerformanceTestAuditStatus;
+import com.capitalone.dashboard.status.TestResultAuditStatus;
 import org.apache.commons.lang3.math.NumberUtils;
 import org.apache.http.client.utils.URIBuilder;
 import org.bson.types.ObjectId;
@@ -37,23 +33,22 @@ import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
-import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.jmx.MBeanServerNotFoundException;
 import org.springframework.util.CollectionUtils;
+import org.springframework.util.StringUtils;
 
-import java.util.List;
+import java.net.URISyntaxException;
 import java.util.ArrayList;
-import java.util.Set;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.Arrays;
-import java.util.Optional;
-import java.util.StringJoiner;
 import java.util.Collections;
-
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
+import java.util.StringJoiner;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
 
@@ -192,7 +187,7 @@ public class AuditCollectorUtil {
      * Check for collector error
      */
     private boolean isCollectorError(JSONArray jsonArray) {
-        Stream<JSONObject> jsonObjectStream = jsonArray.stream().map((Object object) -> (JSONObject) object);
+        Stream<JSONObject> jsonObjectStream = jsonArray.stream().map((Object object) -> object);
         Stream<JSONArray> auditStatusArray = jsonObjectStream.map(jsonObject -> (JSONArray) jsonObject.get(STR_AUDITSTATUSES));
         return auditStatusArray.anyMatch(aSArray -> aSArray.toJSONString().contains(DashboardAuditStatus.COLLECTOR_ITEM_ERROR.name()));
     }
@@ -203,31 +198,31 @@ public class AuditCollectorUtil {
     @SuppressWarnings("PMD.NPathComplexity")
     private boolean isConfigured(AuditType auditType, JSONArray jsonArray) {
         if (auditType.equals(AuditType.CODE_REVIEW)) {
-            return (jsonArray.toJSONString().contains(DashboardAuditStatus.DASHBOARD_REPO_CONFIGURED.name()) ? true : false);
+            return (jsonArray.toJSONString().contains(DashboardAuditStatus.DASHBOARD_REPO_CONFIGURED.name()));
         }
         if (auditType.equals(AuditType.CODE_QUALITY)) {
-            return (jsonArray.toJSONString().contains(DashboardAuditStatus.DASHBOARD_CODEQUALITY_CONFIGURED.name()) ? true : false);
+            return (jsonArray.toJSONString().contains(DashboardAuditStatus.DASHBOARD_CODEQUALITY_CONFIGURED.name()));
         }
         if (auditType.equals(AuditType.STATIC_SECURITY_ANALYSIS)) {
-            return (jsonArray.toJSONString().contains(DashboardAuditStatus.DASHBOARD_STATIC_SECURITY_ANALYSIS_CONFIGURED.name()) ? true : false);
+            return (jsonArray.toJSONString().contains(DashboardAuditStatus.DASHBOARD_STATIC_SECURITY_ANALYSIS_CONFIGURED.name()));
         }
         if (auditType.equals(AuditType.LIBRARY_POLICY)) {
-            return (jsonArray.toJSONString().contains(DashboardAuditStatus.DASHBOARD_LIBRARY_POLICY_ANALYSIS_CONFIGURED.name()) ? true : false);
+            return (jsonArray.toJSONString().contains(DashboardAuditStatus.DASHBOARD_LIBRARY_POLICY_ANALYSIS_CONFIGURED.name()));
         }
         if (auditType.equals(AuditType.TEST_RESULT)) {
-            return (jsonArray.toJSONString().contains(DashboardAuditStatus.DASHBOARD_TEST_CONFIGURED.name()) ? true : false);
+            return (jsonArray.toJSONString().contains(DashboardAuditStatus.DASHBOARD_TEST_CONFIGURED.name()));
         }
         if (auditType.equals(AuditType.PERF_TEST)) {
-            return (jsonArray.toJSONString().contains(DashboardAuditStatus.DASHBOARD_PERFORMANCE_TEST_CONFIGURED.name()) ? true : false);
+            return (jsonArray.toJSONString().contains(DashboardAuditStatus.DASHBOARD_PERFORMANCE_TEST_CONFIGURED.name()));
         }
         if (auditType.equals(AuditType.BUILD_REVIEW)) {
-            return (jsonArray.toJSONString().contains(DashboardAuditStatus.DASHBOARD_BUILD_CONFIGURED.name()) ? true : false);
+            return (jsonArray.toJSONString().contains(DashboardAuditStatus.DASHBOARD_BUILD_CONFIGURED.name()));
         }
         if (auditType.equals(AuditType.ARTIFACT)) {
-            return (jsonArray.toJSONString().contains(DashboardAuditStatus.DASHBOARD_ARTIFACT_CONFIGURED.name()) ? true : false);
+            return (jsonArray.toJSONString().contains(DashboardAuditStatus.DASHBOARD_ARTIFACT_CONFIGURED.name()));
         }
         if (auditType.equals(AuditType.DEPLOY)) {
-            return (jsonArray.toJSONString().contains(DashboardAuditStatus.DASHBOARD_DEPLOYMENT_SCRIPTS_CONFIGURED.name()) ? true : false);
+            return (jsonArray.toJSONString().contains(DashboardAuditStatus.DASHBOARD_DEPLOYMENT_SCRIPTS_CONFIGURED.name()));
         }
         return false;
     }
@@ -646,6 +641,7 @@ public class AuditCollectorUtil {
      */
     protected JSONObject parseObject(String url, AuditSettings settings){
         JSONObject responseObj = null;
+        if(StringUtils.isEmpty(url)) return responseObj;
         try {
             ResponseEntity<String> response = restClient.makeRestCallGet(url, getHeaders(settings));
             JSONParser jsonParser = new JSONParser();
@@ -665,8 +661,13 @@ public class AuditCollectorUtil {
             LOGGER.error("No Server Found to run NoFearRelease audit collector");
             throw new MBeanServerNotFoundException("No Server Found to run NoFearRelease audit collector");
         }
-        URIBuilder auditURI = new URIBuilder();
-        auditURI.setPath(settings.getServers().get(0) + HYGIEIA_AUDIT_URL);
+        URIBuilder auditURI = null;
+        try {
+            auditURI = new URIBuilder(settings.getServers().get(0) + HYGIEIA_AUDIT_URL);
+        } catch (URISyntaxException e) {
+           return null;
+        }
+        //auditURI.setPath(settings.getServers().get(0) + HYGIEIA_AUDIT_URL);
         auditURI.addParameter(AUDIT_PARAMS.title.name(), dashboard.getTitle());
         auditURI.addParameter(AUDIT_PARAMS.businessService.name(), dashboard.getConfigurationItemBusServName());
         auditURI.addParameter(AUDIT_PARAMS.businessApplication.name(), dashboard.getConfigurationItemBusAppName());
