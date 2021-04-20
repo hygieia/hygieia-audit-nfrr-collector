@@ -806,7 +806,8 @@ public class AuditCollectorUtil {
             collectorItem.setDescription(description);
             collectorItem.getOptions().put(OPT_DBRD_ID, getDashboard().getId());
             collectorItem.getOptions().put(OPT_URL, description);
-            LOGGER.info(String.format("new collector item created, description=%s", description));
+            LOGGER.info(String.format("new collector item created, description=%s updated=%d dashboard_id=%s audit_collector_item_id=%s",
+                    description, collectorItem.getLastUpdated(), collectorItem.getOptions().get(OPT_DBRD_ID), collectorItem.getId()));
             return collectorItem;
         }));
         return collectorItemRepository.save(optCollectorItem.get());
