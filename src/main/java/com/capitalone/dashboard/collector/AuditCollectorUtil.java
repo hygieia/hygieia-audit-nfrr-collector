@@ -667,7 +667,6 @@ public class AuditCollectorUtil {
         } catch (URISyntaxException e) {
            return null;
         }
-        //auditURI.setPath(settings.getServers().get(0) + HYGIEIA_AUDIT_URL);
         auditURI.addParameter(AUDIT_PARAMS.title.name(), dashboard.getTitle());
         auditURI.addParameter(AUDIT_PARAMS.businessService.name(), dashboard.getConfigurationItemBusServName());
         auditURI.addParameter(AUDIT_PARAMS.businessApplication.name(), dashboard.getConfigurationItemBusAppName());
@@ -790,7 +789,6 @@ public class AuditCollectorUtil {
     protected CollectorItem createCollectorItem(AuditType auditType){
         String description = getDescription(auditType);
         Pageable pageable = new PageRequest(0, 25);
-//        Iterable<CollectorItem> collectorItems = collectorItemRepository.findByDescription(description);
         Page<CollectorItem> collectorItems = collectorItemRepository.findByCollectorIdAndSearchField(Collections.singletonList(collector.getId()),
                 OPT_OPT_URL, description, pageable);
         Optional<CollectorItem> optCollectorItem = Optional.ofNullable(collectorItems.iterator().hasNext() ? collectorItems.iterator().next() : null);
